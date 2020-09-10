@@ -35,7 +35,7 @@
 				<muleVersion>4.3.0</muleVersion>
 				<username>${username}</username>
 				<password>${password}</password>
-				<applicationName>oauth2.0-provider</applicationName>
+				<applicationName>oauth2-provider-external</applicationName>
 				<environment>Sandbox</environment>
 				<objectStoreV2>true</objectStoreV2>
 				<workerType>Micro</workerType>
