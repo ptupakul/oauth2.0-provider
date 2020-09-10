@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:oauth2-provider="http://www.mulesoft.org/schema/mule/oauth2-provider"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/oauth2-provider http://www.mulesoft.org/schema/mule/oauth2-provider/current/mule-oauth2-provider.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<os:object-store name="client_Object_store" doc:name="Object store" doc:id="0a6d281b-21d6-4c74-be49-23c79f891246" />
+	<os:object-store name="token_Object_store" doc:name="Object store" doc:id="f5959d5e-0653-48ad-a14b-c44619d5edbc" />
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="8d5186c6-a369-43b3-9a17-98091e5f2de9" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<oauth2-provider:config name="OAuth2_Provider_Config" doc:name="OAuth2 Provider Config" doc:id="0d6c70c7-3091-413e-88fc-68bcc0ff6f6e" providerName="OAuth2_Provider" listenerConfig="HTTP_Listener_config" clientStore="client_Object_store" supportedGrantTypes="CLIENT_CREDENTIALS" >
+		<oauth2-provider:token-config tokenStore="token_Object_store" tokenTtl="2" tokenTtlTimeUnit="MINUTES"/>
+	</oauth2-provider:config>
+	<flow name="oauth2.0-providerFlow" doc:id="94b583fd-4002-49a0-ab0d-ecbf8fe7b9b1" >
+		<http:listener doc:name="Listener" doc:id="dace2e22-a65c-42dd-b8fc-ec133642e5d1" config-ref="HTTP_Listener_config" path="/createClient">
+			<http:error-response statusCode="#[vars.httpStatus]" >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<oauth2-provider:create-client doc:name="Create client" doc:id="60271279-874f-43dc-a60f-c005f20946fd" config-ref="OAuth2_Provider_Config" clientId="#[attributes.headers.'client_id']" type="CONFIDENTIAL" secret="#[attributes.headers.'client_secret']" clientName="#[attributes.headers.'client_name']" description='#[""]' principal='#[""]' redirectUris='#[["abc.com"]]' authorizedGrantTypes='#[["CLIENT_CREDENTIALS"]]' scopes="#[[]]" failIfPresent="true"/>
+		<set-payload value='#["Client created successfully"]' doc:name="Set Payload" doc:id="1c68e5da-2580-46b2-a7ab-fb4d00b4c4f5" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="ca44d141-db40-4e7b-b41a-7557a2325534" type="OAUTH2-PROVIDER:CLIENT_ALREADY_EXISTS">
+				<ee:transform doc:name="Transform Message" doc:id="3bed4bb5-68f5-4444-80b3-359f03d9a82d" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Client_id  ALREADY_EXISTS"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[409]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="db38f314-57f1-4041-b295-c494aa628cc9" type="OAUTH2-PROVIDER:INVALID_CONFIGURATION">
+				<ee:transform doc:name="Transform Message" doc:id="b5edb73e-aed5-4120-b63b-e22bbfb0b1da" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:error.description
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[400]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a8ec8b10-6680-48e5-b187-88ec3a121d83" type="ANY">
+				<ee:transform doc:name="Transform Message" doc:id="d57e569e-f79a-45f9-babf-9838c18a1253" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="oauth2.0-providerFlow1" doc:id="f902281c-38c1-40e3-ad6c-9b237e3fd827" >
+		<http:listener doc:name="Listener" doc:id="f400f0cf-aa38-4a77-a89d-6aab5a3268a9" config-ref="HTTP_Listener_config" path="/validate">
+			<http:error-response statusCode="#[vars.httpStatus]" >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<oauth2-provider:validate-token doc:name="Validate token" doc:id="40c877f5-315b-42c5-be1e-2f27df1ed833" config-ref="OAuth2_Provider_Config" scopes="#[[]]"/>
+		<ee:transform doc:name="Transform Message" doc:id="8e7f65e3-bd61-4d51-8844-c62871c0df00" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	messge:"token validated succesfully"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="478e4cca-661a-4c2b-901e-471f842d9b72" type="OAUTH2-PROVIDER:TOKEN_UNAUTHORIZED">
+				<ee:transform doc:name="Transform Message" doc:id="01377bb7-52c9-4fc4-b126-1fc97d922446" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Invalid token"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[401]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
